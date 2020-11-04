@@ -8,13 +8,9 @@
  */
 
 #include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <getopt.h>
 #include <string.h>
-#include <unistd.h>
 #include <ctype.h>
-#include <sys/random.h>
 #include "tegra-fuse.h"
 
 
@@ -131,10 +127,10 @@ static const char *
 sbauth (unsigned long bsmode, tegra_soctype_t soc)
 {
 	if (soc == TEGRA_SOCTYPE_210)
-		return (bsmode & 1) ? "PKC disabled" : "PKC enabled";
+		return (bsmode & 1UL) ? "PKC disabled" : "PKC enabled";
 
 	if (soc == TEGRA_SOCTYPE_186)
-		switch (bsmode & 3) {
+		switch (bsmode & 3UL) {
 			case 0:
 			case 1:
 				return "AES-CMAC using SBK";
@@ -145,7 +141,7 @@ sbauth (unsigned long bsmode, tegra_soctype_t soc)
 		}
 
 	if (soc == TEGRA_SOCTYPE_194)
-		switch (bsmode & 3) {
+		switch (bsmode & 3UL) {
 			case 0:
 				return "SHA2 hash";
 			case 1:
@@ -153,7 +149,7 @@ sbauth (unsigned long bsmode, tegra_soctype_t soc)
 			case 2:
 				return "3072-bit RSA";
 			case 3:
-				if (bsmode & (1<<7))
+				if (bsmode & (1UL<<7U))
 					return "Ed25519";
 				else
 					return "ECDSA with NIST P-256 curve";
@@ -188,7 +184,7 @@ show_machine_id (tegra_fusectx_t ctx)
 	char oneval[16];
 	char machid[64];
 	ssize_t n;
-	int machid_locked = 0;
+	unsigned int machid_locked = 0;
 
 	memset(machid, 0, sizeof(machid));
 	n = read_fuse(ctx, "reserved_odm0", oneval, sizeof(oneval));
@@ -208,7 +204,7 @@ show_machine_id (tegra_fusectx_t ctx)
 		memcpy(machid+24, oneval, 8);
 		n = read_fuse(ctx, "odm_lock", oneval, sizeof(oneval));
 		if (n >= 0)
-			machid_locked = strtoul(oneval, NULL, 16) & 0xf;
+			machid_locked = (unsigned int) strtoul(oneval, NULL, 16) & 15U;
 	} else
 		n = -1;
 	if (n < 0) {
@@ -234,13 +230,12 @@ show_machine_id (tegra_fusectx_t ctx)
 static int
 show_full (tegra_fusectx_t ctx)
 {
-	char chipname[32];
 	char pm[16], pd[16], jtag[16], pubkey[256];
 	char machid[64];
-	unsigned long bsmode;
+	unsigned long bsmode = 0;
 	tegra_soctype_t soc;
 	ssize_t n;
-	int machid_locked;
+	unsigned int machid_locked;
 
 	if (tegra_fuse_soctype(ctx, &soc) < 0) {
 		fprintf(stderr, "ERR: could not identify SoC type\n");
@@ -282,7 +277,7 @@ show_full (tegra_fusectx_t ctx)
 			memcpy(machid+24, oneval, 8);
 			n = read_fuse(ctx, "odm_lock", oneval, sizeof(oneval));
 			if (n >= 0)
-				machid_locked = strtoul(oneval, NULL, 16) & 0xf;
+				machid_locked = (unsigned int) strtoul(oneval, NULL, 16) & 15U;
 		} else
 			n = -1;
 	}
@@ -293,7 +288,7 @@ show_full (tegra_fusectx_t ctx)
 
 	printf("Secure boot auth:          %s\n", sbauth(bsmode, soc));
 	if (soc != TEGRA_SOCTYPE_210)
-		printf("Bootloader SBK encryption: %s\n", (bsmode & 4) ? "ENABLED" : "DISABLED");
+		printf("Bootloader SBK encryption: %s\n", (bsmode & 4UL) ? "ENABLED" : "DISABLED");
 	printf("JTAG interface:            %s\n", (allzeros(jtag) ? "ENABLED"  : "DISABLED"));
 	printf("Secure boot public key:    %s\n", (allzeros(pubkey) ? "not set" : pubkey));
 	printf("Machine ID:                %s\n", (allzeros(machid) ? "not set" : machid));
@@ -379,8 +374,8 @@ close_sec_config (tegra_fusectx_t ctx)
 			return 1;
 		}
 		bsmode = strtoul(pd, NULL, 16);
-		if ((soc == TEGRA_SOCTYPE_186 && (bsmode & 3) != 2) ||
-		    (soc == TEGRA_SOCTYPE_194 && (bsmode & 3) != 1)) {
+		if ((soc == TEGRA_SOCTYPE_186 && (bsmode & 3UL) != 2) ||
+		    (soc == TEGRA_SOCTYPE_194 && (bsmode & 3UL) != 1)) {
 			fprintf(stderr, "boot_security_info fuse not set for 2048-bit RSA - cancelling request\n");
 			return 1;
 		}
@@ -426,8 +421,7 @@ set_machine_id (tegra_fusectx_t ctx)
 {
 	char lock[16], reserved_odm0[16], reserved_odm1[16], reserved_odm2[16], reserved_odm3[16];
 	tegra_soctype_t soc;
-	int fuseid, i;
-	ssize_t n;
+	int fuseid;
 
 	if (tegra_fuse_soctype(ctx, &soc) < 0) {
 		fprintf(stderr, "ERR: could not identify SoC type\n");
@@ -447,7 +441,8 @@ set_machine_id (tegra_fusectx_t ctx)
 	}
 	if (!allzeros(reserved_odm0)) {
 		fprintf(stderr, "reserved_odm0 fuse already programmed: %s\n", reserved_odm0);
-		return 1;
+		if (memcmp(reserved_odm0, machineid, 8) != 0)
+			return 1;
 	}
 	if (read_fuse(ctx, "reserved_odm1", reserved_odm1, sizeof(reserved_odm1)) < 0) {
 		fprintf(stderr, "Could not read reserved_odm1 fuse for verification\n");
@@ -455,7 +450,8 @@ set_machine_id (tegra_fusectx_t ctx)
 	}
 	if (!allzeros(reserved_odm1)) {
 		fprintf(stderr, "reserved_odm1 fuse already programmed: %s\n", reserved_odm1);
-		return 1;
+		if (memcmp(reserved_odm1, machineid+8, 8) != 0)
+			return 1;
 	}
 	if (read_fuse(ctx, "reserved_odm2", reserved_odm2, sizeof(reserved_odm2)) < 0) {
 		fprintf(stderr, "Could not read reserved_odm2 fuse for verification\n");
@@ -463,7 +459,8 @@ set_machine_id (tegra_fusectx_t ctx)
 	}
 	if (!allzeros(reserved_odm2)) {
 		fprintf(stderr, "reserved_odm2 fuse already programmed: %s\n", reserved_odm2);
-		return 1;
+		if (memcmp(reserved_odm2, machineid+16, 8) != 0)
+			return 1;
 	}
 	if (read_fuse(ctx, "reserved_odm3", reserved_odm3, sizeof(reserved_odm3)) < 0) {
 		fprintf(stderr, "Could not read reserved_odm3 fuse for verification\n");
@@ -471,37 +468,52 @@ set_machine_id (tegra_fusectx_t ctx)
 	}
 	if (!allzeros(reserved_odm3)) {
 		fprintf(stderr, "reserved_odm3 fuse already programmed: %s\n", reserved_odm3);
-		return 1;
+		if (memcmp(reserved_odm3, machineid+24, 8) != 0)
+			return 1;
 	}
-	memcpy(reserved_odm0, machineid, 8);
-	fuseid = tegra_fuse_id(ctx, "reserved_odm0");
-	if (fuseid < 0 || tegra_fuse_write(ctx, fuseid, reserved_odm0, 8) < 0) {
-		fprintf(stderr, "Error programming reserved_odm0 fuse\n");
-		return 1;
+	if (allzeros(reserved_odm0)) {
+		printf("Programming reserved_odm0...\n");
+		memcpy(reserved_odm0, machineid, 8);
+		fuseid = tegra_fuse_id(ctx, "reserved_odm0");
+		if (fuseid < 0 || tegra_fuse_write(ctx, fuseid, reserved_odm0, 8) < 0) {
+			fprintf(stderr, "Error programming reserved_odm0 fuse\n");
+			return 1;
+		}
 	}
-	memcpy(reserved_odm1, machineid+8, 8);
-	fuseid = tegra_fuse_id(ctx, "reserved_odm1");
-	if (fuseid < 0 || tegra_fuse_write(ctx, fuseid, reserved_odm1, 8) < 0) {
-		fprintf(stderr, "Error programming reserved_odm1 fuse\n");
-		return 1;
+	if (allzeros(reserved_odm1)) {
+		printf("Programming reserved_odm1...\n");
+		memcpy(reserved_odm1, machineid+8, 8);
+		fuseid = tegra_fuse_id(ctx, "reserved_odm1");
+		if (fuseid < 0 || tegra_fuse_write(ctx, fuseid, reserved_odm1, 8) < 0) {
+			fprintf(stderr, "Error programming reserved_odm1 fuse\n");
+			return 1;
+		}
 	}
-	memcpy(reserved_odm2, machineid+16, 8);
-	fuseid = tegra_fuse_id(ctx, "reserved_odm2");
-	if (fuseid < 0 || tegra_fuse_write(ctx, fuseid, reserved_odm2, 8) < 0) {
-		fprintf(stderr, "Error programming reserved_odm2 fuse\n");
-		return 1;
+	if (allzeros(reserved_odm2)) {
+		printf("Programming reserved_odm2...\n");
+		memcpy(reserved_odm2, machineid+16, 8);
+		fuseid = tegra_fuse_id(ctx, "reserved_odm2");
+		if (fuseid < 0 || tegra_fuse_write(ctx, fuseid, reserved_odm2, 8) < 0) {
+			fprintf(stderr, "Error programming reserved_odm2 fuse\n");
+			return 1;
+		}
 	}
-	memcpy(reserved_odm3, machineid+24, 8);
-	fuseid = tegra_fuse_id(ctx, "reserved_odm3");
-	if (fuseid < 0 || tegra_fuse_write(ctx, fuseid, reserved_odm3, 8) < 0) {
-		fprintf(stderr, "Error programming reserved_odm3 fuse\n");
-		return 1;
+	if (allzeros(reserved_odm3)) {
+		printf("Programming reserved_odm3...\n");
+		memcpy(reserved_odm3, machineid+24, 8);
+		fuseid = tegra_fuse_id(ctx, "reserved_odm3");
+		if (fuseid < 0 || tegra_fuse_write(ctx, fuseid, reserved_odm3, 8) < 0) {
+			fprintf(stderr, "Error programming reserved_odm3 fuse\n");
+			return 1;
+		}
 	}
+	printf("Programming odm_lock...\n");
 	fuseid = tegra_fuse_id(ctx, "odm_lock");
 	if (fuseid < 0 || tegra_fuse_write(ctx, fuseid, "f", 1) < 0) {
 		fprintf(stderr, "Error programming odm_lock fuse\n");
 		return 1;
 	}
+	printf("[OK]\n");
 	return 0;
 
 } /* set_machine_id */

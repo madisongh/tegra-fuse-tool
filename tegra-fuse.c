@@ -9,10 +9,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
 #include "tegra-fuse.h"
@@ -37,7 +34,7 @@ static const struct tegra_fuse_data_s tegra210_fuse_data[TEGRA210_FUSE_COUNT] = 
 static const struct {
 	const char *chipname;
 	const struct tegra_fuse_data_s *fuses;
-	size_t fusecount;
+	int fusecount;
 } fuseinfo[TEGRA_SOCTYPE_COUNT] = {
 	[TEGRA_SOCTYPE_186] = { "Tegra186", tegra186_fuse_data, TEGRA186_FUSE_COUNT },
 	[TEGRA_SOCTYPE_194] = { "Tegra194", tegra194_fuse_data, TEGRA194_FUSE_COUNT },
@@ -57,7 +54,7 @@ struct tegra_fusectx_s {
  * Returns the character string for the fuse (as exposed in sysfs).
  */
 const char *
-tegra_fuse_name (tegra_fusectx_t ctx, unsigned int fuseid)
+tegra_fuse_name (tegra_fusectx_t ctx, int fuseid)
 {
 	if (ctx == NULL) {
 		errno = EINVAL;
@@ -85,7 +82,7 @@ tegra_fuse_id (tegra_fusectx_t ctx, const char *name)
 		errno = EINVAL;
 		return -1;
 	}
-	for (i = 0; i < (int) fuseinfo[ctx->soc].fusecount; i++) {
+	for (i = 0; i < fuseinfo[ctx->soc].fusecount; i++) {
 		if (strcmp(name, fuseinfo[ctx->soc].fuses[i].name) == 0)
 			return i;
 	}
@@ -101,7 +98,7 @@ tegra_fuse_id (tegra_fusectx_t ctx, const char *name)
  * Returns the size, in bits, of the fuse.
  */
 int
-tegra_fuse_size (tegra_fusectx_t ctx, unsigned int fuseid)
+tegra_fuse_size (tegra_fusectx_t ctx, int fuseid)
 {
 	if (ctx == NULL) {
 		errno = EINVAL;
@@ -237,8 +234,8 @@ tegra_fuse_context_close (tegra_fusectx_t ctx)
  * Read a fuse setting.
  */
 ssize_t
-tegra_fuse_read (tegra_fusectx_t ctx, unsigned int fuseid,
-		 void *outbuf, size_t bufsiz)
+tegra_fuse_read (tegra_fusectx_t ctx, int fuseid,
+                 void *outbuf, size_t bufsiz)
 {
 	int fd;
 	ssize_t n;
@@ -269,7 +266,7 @@ tegra_fuse_read (tegra_fusectx_t ctx, unsigned int fuseid,
 		n = bufsiz - 3;
 	n -= 2; // for the leading '0x'
 	if (n > 0)
-		memcpy(outbuf, buf + 2, n);
+		memcpy(outbuf, buf + 2, (size_t) n);
 	*((char *)outbuf + n) = '\0';
 	return n;
 
@@ -281,8 +278,8 @@ tegra_fuse_read (tegra_fusectx_t ctx, unsigned int fuseid,
  * Blow fuses.
  */
 ssize_t
-tegra_fuse_write (tegra_fusectx_t ctx, unsigned int fuseid,
-		  const void *buf, size_t buflen)
+tegra_fuse_write (tegra_fusectx_t ctx, int fuseid,
+                  const void *buf, size_t buflen)
 {
 	int fd;
 	ssize_t n;

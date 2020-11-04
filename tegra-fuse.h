@@ -110,11 +110,11 @@ tegra_fusectx_t tegra_fuse_context_open(const char *basepath);
 int tegra_fuse_soctype(tegra_fusectx_t ctx, tegra_soctype_t *soc);
 ssize_t tegra_fuse_soctype_name(tegra_fusectx_t ctx, char *buf, size_t bufsiz);
 void tegra_fuse_context_close(tegra_fusectx_t ctx);
-ssize_t tegra_fuse_read(tegra_fusectx_t ctx, unsigned int fuseid, void *buf, size_t bufsiz);
-ssize_t tegra_fuse_write(tegra_fusectx_t ctx, unsigned int fuseid, const void *buf, size_t bufsiz);
-const char *tegra_fuse_name(tegra_fusectx_t ctx, unsigned int fuseid);
+ssize_t tegra_fuse_read(tegra_fusectx_t ctx, int fuseid, void *buf, size_t bufsiz);
+ssize_t tegra_fuse_write(tegra_fusectx_t ctx, int fuseid, const void *buf, size_t bufsiz);
+const char *tegra_fuse_name(tegra_fusectx_t ctx, int fuseid);
 int tegra_fuse_id(tegra_fusectx_t ctx, const char *fusename);
 unsigned int tegra_fuse_count(tegra_fusectx_t ctx);
-int tegra_fuse_size(tegra_fusectx_t ctx, unsigned int fuseid);
+int tegra_fuse_size(tegra_fusectx_t ctx, int fuseid);
 
 #endif /* tegra_fuse_h__ */
