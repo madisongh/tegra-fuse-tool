@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <stdbool.h>
 #include "tegra-fuse.h"
 
 struct tegra_fuse_data_s {
@@ -31,6 +32,10 @@ static const struct tegra_fuse_data_s tegra194_fuse_data[TEGRA194_FUSE_COUNT] = 
 static const struct tegra_fuse_data_s tegra210_fuse_data[TEGRA210_FUSE_COUNT] = { TEGRA210_FUSES };
 #undef TEGRA_FUSE
 
+#define TEGRA_FUSE(x_, y_, z_) [TEGRA234_FUSE_##x_] = { y_, z_ },
+static const struct tegra_fuse_data_s tegra234_fuse_data[TEGRA234_FUSE_COUNT] = { TEGRA234_FUSES };
+#undef TEGRA_FUSE
+
 static const struct {
 	const char *chipname;
 	const struct tegra_fuse_data_s *fuses;
@@ -39,6 +44,7 @@ static const struct {
 	[TEGRA_SOCTYPE_186] = { "Tegra186", tegra186_fuse_data, TEGRA186_FUSE_COUNT },
 	[TEGRA_SOCTYPE_194] = { "Tegra194", tegra194_fuse_data, TEGRA194_FUSE_COUNT },
 	[TEGRA_SOCTYPE_210] = { "Tegra210", tegra210_fuse_data, TEGRA210_FUSE_COUNT },
+	[TEGRA_SOCTYPE_234] = { "Tegra234", tegra234_fuse_data, TEGRA234_FUSE_COUNT },
 };
 
 static const char fuse_path[] = "/sys/devices/platform/tegra-fuse";
@@ -172,26 +178,43 @@ tegra_fuse_context_open (const char *basepath)
 	int fd;
 	unsigned long chipid;
 	char soctype[65];
+	bool jetpack5 = false;
 
 	fd = open("/sys/module/tegra_fuse/parameters/tegra_chip_id", O_RDONLY);
-	if (fd < 0)
-		return NULL;
+	if (fd < 0) {
+		fd = open("/sys/module/fuse_burn/parameters/tegra_chip_uid", O_RDONLY);
+		if (fd < 0)
+			return NULL;
+		else
+			jetpack5 = true;
+	}
+
 	typelen = read(fd, soctype, sizeof(soctype)-1);
 	close(fd);
 	if (typelen < 0)
 		return NULL;
 	while (typelen > 0 && soctype[typelen-1] == '\n') typelen--;
 	soctype[typelen] = '\0';
+
 	chipid = strtoul(soctype, NULL, 10);
+	if (jetpack5)
+		chipid = (chipid >> 60);
+
 	switch (chipid) {
 	case 0x18:
+	case 0x6:
 		soc = TEGRA_SOCTYPE_186;
 		break;
 	case 0x19:
+	case 0x7:
 		soc = TEGRA_SOCTYPE_194;
 		break;
 	case 0x21:
+	case 0x5:
 		soc = TEGRA_SOCTYPE_210;
+		break;
+	case 0x8:
+		soc = TEGRA_SOCTYPE_234;
 		break;
 	default:
 		errno = ENXIO;

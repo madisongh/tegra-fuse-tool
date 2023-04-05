@@ -71,6 +71,20 @@
 	TEGRA_FUSE(PUBKEY,	"public_key",		256) \
 	TEGRA_FUSE(PKCDIS,	"pkc_disable",		1)
 
+#define TEGRA234_FUSES \
+	TEGRA_FUSE(ODMRES0,     "reserved_odm0",        32)  \
+	TEGRA_FUSE(ODMRES1,     "reserved_odm1",        32)  \
+	TEGRA_FUSE(ODMRES2,     "reserved_odm2",        32)  \
+	TEGRA_FUSE(ODMRES3,     "reserved_odm3",        32)  \
+	TEGRA_FUSE(ODMRES4,     "reserved_odm4",        32)  \
+	TEGRA_FUSE(ODMRES5,     "reserved_odm5",        32)  \
+	TEGRA_FUSE(ODMRES6,     "reserved_odm6",        32)  \
+	TEGRA_FUSE(ODMRES7,     "reserved_odm7",        32)  \
+	TEGRA_FUSE(ODMLOCK,     "odm_lock",             4)   \
+	TEGRA_FUSE(PUBKEY,      "public_key",           512) \
+	TEGRA_FUSE(BOOTSECINFO, "boot_security_info",   32)  \
+	TEGRA_FUSE(ODMINFO,     "odm_info",             16)
+
 #define TEGRA_FUSE(x_, y_, z_) TEGRA186_FUSE_##x_,
 typedef enum {
 	TEGRA186_FUSES
@@ -95,10 +109,19 @@ typedef enum {
 #undef TEGRA_FUSE
 #define TEGRA210_FUSE_COUNT ((int) TEGRA210_FUSE_COUNT__)
 
+#define TEGRA_FUSE(x_, y_, z_) TEGRA234_FUSE_##x_,
+typedef enum {
+        TEGRA234_FUSES
+        TEGRA234_FUSE_COUNT__
+} tegra234_fuse_t;
+#undef TEGRA_FUSE
+#define TEGRA234_FUSE_COUNT ((int) TEGRA234_FUSE_COUNT__)
+
 typedef enum {
 	TEGRA_SOCTYPE_186,
 	TEGRA_SOCTYPE_194,
 	TEGRA_SOCTYPE_210,
+	TEGRA_SOCTYPE_234,
 	TEGRA_SOCTYPE_COUNT__
 } tegra_soctype_t;
 #define TEGRA_SOCTYPE_COUNT ((int) TEGRA_SOCTYPE_COUNT__)

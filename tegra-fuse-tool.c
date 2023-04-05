@@ -155,6 +155,21 @@ sbauth (unsigned long bsmode, tegra_soctype_t soc)
 					return "ECDSA with NIST P-256 curve";
 		}
 
+	if (soc == TEGRA_SOCTYPE_234)
+		switch (bsmode & 7UL) {
+			case 0:
+				return "SHA2-512 hash (not recommended)";
+			case 1:
+				return "3072-bit RSA";
+			case 2:
+				return "ECDSA with NIST P-256 curve";
+			case 3:
+				return "ECDSA with NIST P-512 curve";
+			case 4:
+				return "Ed25519";
+			case 5:
+				return "XMSS - no Pre Hashing";
+		}
 
 	return "UNKNOWN";
 
@@ -230,7 +245,7 @@ show_machine_id (tegra_fusectx_t ctx)
 static int
 show_full (tegra_fusectx_t ctx)
 {
-	char pm[16], pd[16], jtag[16], pubkey[256];
+	char pm[16], pd[32], jtag[16], pubkey[512];
 	char machid[64];
 	unsigned long bsmode = 0;
 	tegra_soctype_t soc;
@@ -241,10 +256,12 @@ show_full (tegra_fusectx_t ctx)
 		fprintf(stderr, "ERR: could not identify SoC type\n");
 		return 1;
 	}
-	n = read_fuse(ctx, "odm_production_mode", pm, sizeof(pm));
+	if (soc != TEGRA_SOCTYPE_234) {
+	    n = read_fuse(ctx, "odm_production_mode", pm, sizeof(pm));
+	}
 	if (n >= 0) {
 		printf("Secure boot configuration: %s\n", (allzeros(pm) ? "OPEN" : "CLOSED"));
-		if (soc == TEGRA_SOCTYPE_186 || soc == TEGRA_SOCTYPE_194)
+		if (soc == TEGRA_SOCTYPE_186 || soc == TEGRA_SOCTYPE_194 || soc == TEGRA_SOCTYPE_234)
 			n = read_fuse(ctx, "boot_security_info", pd, sizeof(pd));
 		else
 			n = read_fuse(ctx, "pkc_disable", pd, sizeof(pd));
@@ -253,7 +270,9 @@ show_full (tegra_fusectx_t ctx)
 
 	}
 	if (n >= 0)
-		n = read_fuse(ctx, "arm_jtag_disable", jtag, sizeof(jtag));
+		if (soc != TEGRA_SOCTYPE_234) {
+		    n = read_fuse(ctx, "arm_jtag_disable", jtag, sizeof(jtag));
+		}
 	if (n >= 0)
 		n = read_fuse(ctx, "public_key", pubkey, sizeof(pubkey));
 	memset(machid, 0, sizeof(machid));
