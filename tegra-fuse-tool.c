@@ -30,13 +30,13 @@ static struct option options[] = {
 static const char *shortopts = ":icspSmM:h";
 
 static char *optarghelp[] = {
-	"--chip-id            ",
-	"--closed             ",
-	"--show               ",
-	"--set-closed         ",
+	"--chip-id	      ",
+	"--closed	      ",
+	"--show		      ",
+	"--set-closed	      ",
 	"--show-machine-id    ",
 	"--set-machine-id     ",
-	"--help               ",
+	"--help		      ",
 };
 
 static char *opthelp[] = {
@@ -107,7 +107,18 @@ show_sec_config_status (tegra_fusectx_t ctx)
 {
 	char buf[16];
 	ssize_t n;
-	int fuseid = tegra_fuse_id(ctx, "odm_production_mode");
+	tegra_soctype_t soc;
+	int fuseid;
+
+	if (tegra_fuse_soctype(ctx, &soc) < 0) {
+		fprintf(stderr, "ERR: could not identify SoC type\n");
+		return 1;
+	}
+	if (soc == TEGRA_SOCTYPE_234) {
+		fprintf(stderr, "ERR: not supported on T234\n");
+		return 1;
+	}
+	fuseid = tegra_fuse_id(ctx, "odm_production_mode");
 
 	if (fuseid < 0) {
 		fprintf(stderr, "Could not identify odm_production_mode fuse\n");
@@ -258,17 +269,19 @@ show_full (tegra_fusectx_t ctx)
 	}
 	if (soc != TEGRA_SOCTYPE_234) {
 	    n = read_fuse(ctx, "odm_production_mode", pm, sizeof(pm));
+	    if (n >= 0)
+		    printf("Secure boot configuration: %s\n", (allzeros(pm) ? "OPEN" : "CLOSED"));
+	    else
+		    perror("reading odm_production_mode fuse");
 	}
-	if (n >= 0) {
-		printf("Secure boot configuration: %s\n", (allzeros(pm) ? "OPEN" : "CLOSED"));
-		if (soc == TEGRA_SOCTYPE_186 || soc == TEGRA_SOCTYPE_194 || soc == TEGRA_SOCTYPE_234)
-			n = read_fuse(ctx, "boot_security_info", pd, sizeof(pd));
-		else
-			n = read_fuse(ctx, "pkc_disable", pd, sizeof(pd));
-		if (n >= 0)
-			bsmode = strtoul(pd, NULL, 16);
 
-	}
+	if (soc == TEGRA_SOCTYPE_186 || soc == TEGRA_SOCTYPE_194 || soc == TEGRA_SOCTYPE_234)
+		n = read_fuse(ctx, "boot_security_info", pd, sizeof(pd));
+	else
+		n = read_fuse(ctx, "pkc_disable", pd, sizeof(pd));
+	if (n >= 0)
+		bsmode = strtoul(pd, NULL, 16);
+
 	if (n >= 0)
 		if (soc != TEGRA_SOCTYPE_234) {
 		    n = read_fuse(ctx, "arm_jtag_disable", jtag, sizeof(jtag));
@@ -305,33 +318,37 @@ show_full (tegra_fusectx_t ctx)
 		return 1;
 	}
 
-	printf("Secure boot auth:          %s\n", sbauth(bsmode, soc));
+	printf("Secure boot auth:	   %s\n", sbauth(bsmode, soc));
 	if (soc != TEGRA_SOCTYPE_210)
 		printf("Bootloader SBK encryption: %s\n", (bsmode & 4UL) ? "ENABLED" : "DISABLED");
-	printf("JTAG interface:            %s\n", (allzeros(jtag) ? "ENABLED"  : "DISABLED"));
-	printf("Secure boot public key:    %s\n", (allzeros(pubkey) ? "not set" : pubkey));
-	printf("Machine ID:                %s\n", (allzeros(machid) ? "not set" : machid));
-	printf("Machine ID locked:         %s\n", (machid_locked == 15 ? "YES" :
+	if (soc != TEGRA_SOCTYPE_234)
+		printf("JTAG interface:	       %s\n", (allzeros(jtag) ? "ENABLED"  : "DISABLED"));
+	printf("Secure boot public key:	   %s\n", (allzeros(pubkey) ? "not set" : pubkey));
+	printf("Machine ID:		   %s\n", (allzeros(machid) ? "not set" : machid));
+	printf("Machine ID locked:	   %s\n", (machid_locked == 15 ? "YES" :
 						   (machid_locked == 0 ? "NO" : "PARTIALLY")));
 
 	/*
 	 * The DK/SBK (210) or KEK[0-2] (186) are only readable if we are not
-	 * in 'production mode'. KEKs are not exported by the driver on 194.
+	 * in 'production mode'. KEKs are not exported by the driver on 194 or 234.
 	 */
+	if (soc == TEGRA_SOCTYPE_194 || soc == TEGRA_SOCTYPE_234)
+		return 0;
+
 	if (allzeros(pm)) {
 		char key[256];
 		if (soc == TEGRA_SOCTYPE_210) {
 			if (read_fuse(ctx, "device_key", key, sizeof(key)) >= 0)
-				printf("Device key:                %s\n", key);
+				printf("Device key:		   %s\n", key);
 			if (read_fuse(ctx, "secure_boot_key", key, sizeof(key)) >= 0)
-				printf("Secure boot key:           %s\n", key);
+				printf("Secure boot key:	   %s\n", key);
 		} else if (soc == TEGRA_SOCTYPE_186) {
 			if (read_fuse(ctx, "kek0", key, sizeof(key)) >= 0)
-				printf("KEK0:                      %s\n", key);
+				printf("KEK0:			   %s\n", key);
 			if (read_fuse(ctx, "kek1", key, sizeof(key)) >= 0)
-				printf("KEK1:                      %s\n", key);
+				printf("KEK1:			   %s\n", key);
 			if (read_fuse(ctx, "kek2", key, sizeof(key)) >= 0)
-				printf("KEK2:                      %s\n", key);
+				printf("KEK2:			   %s\n", key);
 		}
 	}
 
@@ -359,6 +376,10 @@ close_sec_config (tegra_fusectx_t ctx)
 
 	if (tegra_fuse_soctype(ctx, &soc) < 0) {
 		fprintf(stderr, "ERR: could not identify SoC type\n");
+		return 1;
+	}
+	if (soc == TEGRA_SOCTYPE_234) {
+		fprintf(stderr, "ERR: not supported on T234\n");
 		return 1;
 	}
 	if (read_fuse(ctx, "odm_production_mode", pm, sizeof(pm)) < 0) {
@@ -574,7 +595,7 @@ main (int argc, char * const argv[])
 			dispatch = show_full;
 			break;
 		case 'S':
-		        dispatch = close_sec_config;
+			dispatch = close_sec_config;
 			break;
 		case 'm':
 			dispatch = show_machine_id;
