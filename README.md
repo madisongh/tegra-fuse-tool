@@ -1,9 +1,8 @@
 # tegra-fuse-tool
-Tool for examining secure-boot fuses on Jetson-TX1/Nano,
-Jetson-TX2, Jetson AGX Xavier, and Jetson Orin modules.
+Tool for examining the eFuses on Jetson Orin and
+Jetson Thor modules using the nvmem interface exposed by
+the NVIDIA SoC fuse driver with L4T R36.4.x and later.
 
-See the NVIDIA L4T BSP documentation for information on
-secure boot and fuse programming.
-
-**WARNING** Incorrect manipulation of the fuses can render
-your device unbootable.  **USE AT YOUR OWN RISK.**
+Documentation on fuse locations within the nvmem block
+are derived from the `nv_fuse_read.sh` script shipped
+with L4T.
