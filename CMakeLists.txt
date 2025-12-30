@@ -11,5 +11,4 @@ add_executable(tegra-fuse-tool tegra-fuse-tool.c)
 target_compile_definitions(tegra-fuse-tool PRIVATE _GNU_SOURCE)
 target_link_libraries(tegra-fuse-tool tegra-fuse)
 
-install(TARGETS tegra-fuse PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/tegra-fuse)
 install(TARGETS tegra-fuse-tool RUNTIME)
