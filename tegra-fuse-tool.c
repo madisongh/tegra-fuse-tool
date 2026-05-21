@@ -90,19 +90,28 @@ show_sec_config_status (tegra_fusectx_t ctx)
 {
 	uint32_t secmode;
 	tegra_soctype_t soc;
-
+	tegra_fuse_t fuse_id;
+	
 	if (tegra_fuse_soctype(ctx, &soc) < 0) {
 		fprintf(stderr, "ERR: could not identify SoC type\n");
 		return 1;
 	}
-	if (soc == TEGRA_SOCTYPE_234) {
-		fprintf(stderr, "ERR: not supported on T234\n");
+
+	if (soc != TEGRA_SOCTYPE_234) {
+		fprintf(stderr, "ERR: Unsupported SOC\n");
 		return 1;
 	}
-	if (tegra_fuse_read(ctx, TEGRA_FUSE_SECURITY_MODE, &secmode, sizeof(secmode)) < 0) {
-		fprintf(stderr, "Error reading security mode fuse\n");
+
+	if (tegra_fuse_id(ctx, "security_mode", &fuse_id) < 0) {
+		fprintf(stderr, "ERR: unrecognized fuse name: security_mode\n");
 		return 1;
 	}
+
+	if (tegra_fuse_read(ctx, fuse_id, &secmode, sizeof(secmode)) < 0) {
+		fprintf(stderr, "ERR: could not read security mode fuse\n");
+		return 1;
+	}
+
 	printf("%s\n", (secmode == 0 ? "OPEN" : "CLOSED"));
 	return 0;
 
