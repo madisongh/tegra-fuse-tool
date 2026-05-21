@@ -95,14 +95,12 @@ show_sec_config_status (tegra_fusectx_t ctx)
 		fprintf(stderr, "ERR: could not identify SoC type\n");
 		return 1;
 	}
-	if (soc == TEGRA_SOCTYPE_234) {
-		fprintf(stderr, "ERR: not supported on T234\n");
-		return 1;
-	}
+
 	if (tegra_fuse_read(ctx, TEGRA_FUSE_SECURITY_MODE, &secmode, sizeof(secmode)) < 0) {
-		fprintf(stderr, "Error reading security mode fuse\n");
+		fprintf(stderr, "ERR: could not read security mode fuse\n");
 		return 1;
 	}
+
 	printf("%s\n", (secmode == 0 ? "OPEN" : "CLOSED"));
 	return 0;
 
